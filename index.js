@@ -430,7 +430,13 @@
 
     global.Flex = {
         apply: ( containerEl, attrs, childrenAttrs ) => {
-            layout( doc.querySelector( containerEl ), parseFlexAttrs( attrs ), parseFlexItemAttrs( childrenAttrs ) )
+            let rootEl = doc.querySelector( containerEl )
+
+            if ( !rootEl || !rootEl.children || !rootEl.children.length ) {
+                return
+            }
+
+            layout( rootEl, parseFlexAttrs( attrs || {} ), parseFlexItemAttrs( childrenAttrs || {} ) )
         }
     }
 })( window )

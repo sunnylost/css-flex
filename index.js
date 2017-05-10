@@ -135,9 +135,10 @@
             if ( basis ) {
                 if ( basis === CONTENT ) {
                     if ( !el.children.length ) {
-                        dummy.innerHTML = el.innerHTML
-                        let rect        = dummy.getBoundingClientRect()
-                        item.baseSize   = rect.right - rect.left
+                        dummy.innerHTML  = el.innerHTML
+                        dummy.style.font = realValue( el, 'font' )
+                        let rect         = dummy.getBoundingClientRect()
+                        item.baseSize    = rect.width
                     }
                 } else {
                     item.baseSize = parseInt( basis )
@@ -189,6 +190,7 @@
         }, initWidth )
     }
 
+    //https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths
     function resolveFlexibleLengths( line ) {
         let allSize        = line.reduce( ( accumulator, item ) => {
                 return accumulator + item.baseSize
@@ -197,7 +199,7 @@
 
         //1. Determine the used flex factor
         let isUsingGrowFactor   = allSize < this.width,
-            unfrozenItems       = line.concat(),
+            unfrozenItems       = line,
             unfrozenItemsLength = unfrozenItems.length,
             initFreeSpace       = 0,
             remainingFreeSpace  = 0,
@@ -210,12 +212,20 @@
         while ( isComputing ) {
             remainingFreeSpace = computeFreeSpace( line, containerWidth )
 
-            let factorSum = unfrozenItems.reduce( ( accumulator, item ) => {
-                return accumulator + ( isUsingGrowFactor ? item.attrs.grow : item.attrs.shrink )
-            }, 0 )
+            let factorSum
+
+            if ( isUsingGrowFactor ) {
+                factorSum = unfrozenItems.reduce( ( accumulator, item ) => {
+                    return accumulator + item.attrs.grow
+                }, 0 )
+            } else {
+                factorSum = unfrozenItems.reduce( ( accumulator, item ) => {
+                    return accumulator + item.attrs.shrink * item.baseSize
+                }, 0 )
+            }
 
             unfrozenItems.forEach( ( item ) => {
-                let factor = isUsingGrowFactor ? item.attrs.grow : item.attrs.shrink
+                let factor = isUsingGrowFactor ? item.attrs.grow : ( item.attrs.shrink * item.baseSize )
 
                 //b. Calculate the remaining free space
                 if ( factorSum < 1 ) {
@@ -226,11 +236,18 @@
                     }
                 }
 
+                let ratio
+
+                if ( !factor ) {
+                    ratio = 0
+                } else {
+                    ratio = factor / factorSum
+                }
+
                 if ( isUsingGrowFactor ) {
-                    let ratio  = factor / factorSum
                     item.width = item.baseSize + remainingFreeSpace * ratio
                 } else {
-                    //TODO
+                    item.width = item.baseSize - Math.abs( remainingFreeSpace ) * ratio
                 }
 
                 let hasMinViolation = false,
@@ -255,6 +272,27 @@
 
             isComputing = !!unfrozenItemsLength
         }
+    }
+
+    function mainAxisAlignment( flexContainer ) {
+        flexContainer.el.position = 'relative';
+
+        flexContainer.lines.forEach( ( line ) => {
+            switch ( flexContainer.flexAttrs[ 'justify-content' ] ) {
+            case 'flex-start':
+                line.reduce( ( accumulator, item ) => {
+                    let el = item.el
+                    el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
+
+                    return accumulator + item.width
+                        + ( parseFloat( realValue( el, 'padding-left' ) ) || 0 )
+                        + ( parseFloat( realValue( el, 'padding-right' ) ) || 0 )
+                        + ( parseFloat( realValue( el, 'border-left-width' ) ) || 0 )
+                        + ( parseFloat( realValue( el, 'border-right-width' ) ) || 0 )
+                }, 0 )
+                break
+            }
+        } )
     }
 
     function layout( el, flexAttrs, flexItemsAttrs ) {
@@ -283,9 +321,10 @@
 
         //single line
         flexContainer.isSingleLine = flexAttrs.wrap === 'nowrap'
-        flexContainer.width        = parseFloat( realValue( flexContainer.el, 'width' ) )
+        flexContainer.width        = parseFloat( realValue( flexContainer.el, 'width' ) ) || 0
         determineLineSize( flexContainer )
         determineMainSize( flexContainer )
+        mainAxisAlignment( flexContainer )
     }
 
     init()

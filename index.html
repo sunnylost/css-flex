@@ -55,11 +55,12 @@
 <script>
     Flex.apply( '.flex-container', {
         display          : 'flex',
-        'flex-flow'      : 'row wrap',
-        'justify-content': 'space-around'
+        'flex-flow'      : 'row nowrap',
+        'justify-content': 'flex-start'
     }, {
         all: {
-            flex: '1'
+            flex             : '0 1 auto',
+            'justify-content': 'flex-start'
         }
     } )
 </script>

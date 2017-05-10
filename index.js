@@ -1,4 +1,4 @@
-(function ( global ) {
+(function( global ) {
     let doc     = document,
         body    = doc.body,
         dummy   = doc.createElement( 'x-dummy' ),
@@ -132,11 +132,15 @@
             let basis = item.attrs.basis,
                 el    = item.el
 
-            if ( basis && basis === CONTENT ) {
-                if ( !el.children.length ) {
-                    dummy.innerHTML = el.innerHTML
-                    let rect        = dummy.getBoundingClientRect()
-                    item.baseSize   = rect.right - rect.left
+            if ( basis ) {
+                if ( basis === CONTENT ) {
+                    if ( !el.children.length ) {
+                        dummy.innerHTML = el.innerHTML
+                        let rect        = dummy.getBoundingClientRect()
+                        item.baseSize   = rect.right - rect.left
+                    }
+                } else {
+                    item.baseSize = parseInt( basis )
                 }
             }
         } )
@@ -154,7 +158,7 @@
 
             while ( items.length ) {
                 let item = items.shift()
-                reduceVal += items.baseSize
+                reduceVal += item.baseSize
 
                 if ( reduceVal > width ) {
                     line      = [ item ]
@@ -178,10 +182,10 @@
             }
 
             return accumulator - item.baseSize
-              - ( parseFloat( realValue( el, 'padding-left' ) ) || 0 )
-              - ( parseFloat( realValue( el, 'padding-right' ) ) || 0 )
-              - ( parseFloat( realValue( el, 'border-left-width' ) ) || 0 )
-              - ( parseFloat( realValue( el, 'border-right-width' ) ) || 0 )
+                - ( parseFloat( realValue( el, 'padding-left' ) ) || 0 )
+                - ( parseFloat( realValue( el, 'padding-right' ) ) || 0 )
+                - ( parseFloat( realValue( el, 'border-left-width' ) ) || 0 )
+                - ( parseFloat( realValue( el, 'border-right-width' ) ) || 0 )
         }, initWidth )
     }
 

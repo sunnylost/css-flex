@@ -75,6 +75,10 @@
 
         if ( attrs.all ) { //apply to all flex items
             flexItemAttrs.all = parseItemAttr( attrs.all )
+
+            for ( let key in attrs ) {
+                flexItemAttrs[ key ] = parseItemAttr( attrs[ key ] )
+            }
         } else {
             for ( let key in attrs ) {
                 flexItemAttrs[ key ] = parseItemAttr( attrs[ key ] )
@@ -195,6 +199,11 @@
 
     //https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths
     function resolveFlexibleLengths( line ) {
+        //handle order, not write in spec.
+        line.sort( ( a, b ) => {
+            return a.attrs.order - b.attrs.order
+        } )
+
         let allSize        = line.reduce( ( accumulator, item ) => {
                 return accumulator + item.baseSize
             }, 0 ),

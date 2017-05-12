@@ -9,7 +9,9 @@
     const AUTO      = 'auto',
           CONTENT   = 'content',
           MIN_WIDTH = 'min-width',
-          MAX_WIDTH = 'max-width'
+          MAX_WIDTH = 'max-width',
+          INITIAL   = 'initial',
+          NONE      = 'none'
 
     function defaultValueHelper( val, defaultVal ) {
         return typeof val === 'undefined' ? defaultVal : val
@@ -106,17 +108,17 @@
         }
 
         if ( !attr.flex ) {
-            attr.flex = 'initial'
+            attr.flex = INITIAL
         }
 
         switch ( attr.flex ) {
-        case 'initial':
+        case INITIAL:
             attr.flex = '0 1 auto'
             break
         case AUTO:
             attr.flex = '1 1 auto'
             break
-        case 'none':
+        case NONE:
             attr.flex = '0 0 auto'
             break
         default:
@@ -132,6 +134,12 @@
         flexItemAttr.basis  = defaultValueHelper( flexParts[ 2 ], AUTO )
         attr.order && ( flexItemAttr.order = attr.order )
         attr[ 'align-self' ] && ( flexItemAttr[ 'align-self' ] = attr[ 'align-self' ] )
+
+        for ( let key in attr ) {
+            if ( !flexItemAttr.hasOwnProperty( key ) ) {
+                flexItemAttr[ key ] = attr[ key ]
+            }
+        }
 
         return flexItemAttr
     }
@@ -287,10 +295,10 @@
     }
 
     function mainAxisAlignment( flexContainer ) {
-        flexContainer.el.style.position = 'relative';
+        flexContainer.el.style.position = 'relative'
 
         flexContainer.lines.forEach( ( line ) => {
-            let firstItem, lastItem
+            let firstItem, lastItem, widthSum, lefOffset
 
             if ( !line.length ) return
 
@@ -314,11 +322,11 @@
                 break
 
             case 'center':
-                let widthSum = line.reduce( ( accumulator, item ) => {
+                widthSum = line.reduce( ( accumulator, item ) => {
                     return accumulator + itemInnerWidth( item )
                 }, 0 )
 
-                let lefOffset = ( flexContainer.width - widthSum ) / 2
+                lefOffset = ( flexContainer.width - widthSum ) / 2
 
                 line.reduce( ( accumulator, item ) => {
                     let el = item.el
@@ -365,27 +373,19 @@
                     return mainAxisAlignment( flexContainer )
                 }
 
-                firstItem = line[ 0 ]
-                lastItem  = line[ line.length - 1 ]
+                let widthSum = line.reduce( ( accumulator, item ) => {
+                    return accumulator + itemInnerWidth( item )
+                }, 0 )
 
-                firstItem.el.style.cssText += 'position:absolute;top:0;left:0px;'
-                lastItem.el.style.cssText += 'position:absolute;top:0;right:0px;'
+                //first/last item has only half offset from container's edge.
+                let offset = ( flexContainer.width - widthSum ) / line.length
 
-                if ( line.length > 2 ) {
-                    let widthSum = line.reduce( ( accumulator, item ) => {
-                        return accumulator + itemInnerWidth( item )
-                    }, 0 )
+                line.reduce( ( accumulator, item ) => {
+                    let el = item.el
+                    el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
 
-                    //first/last item has only half offset from container's edge.
-                    let offset = ( flexContainer.width - widthSum ) / line.length
-
-                    line.reduce( ( accumulator, item, i ) => {
-                        let el = item.el
-                        el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
-
-                        return accumulator + itemInnerWidth( item ) + offset
-                    }, offset / 2 )
-                }
+                    return accumulator + itemInnerWidth( item ) + offset
+                }, offset / 2 )
                 break
 
             default:
@@ -407,16 +407,35 @@
         }
 
         //set item size
-        flexContainer.items.forEach( ( item, i ) => {
-            let width  = cssValue( item.el, 'width' )
-            item.attrs = flexItemsAttrs[ i ] || flexItemsAttrs.all
+        let items = []
+        for ( let i = 0; i < flexContainer.items.length; i++ ) {
+            let item    = flexContainer.items[ i ],
+                el      = item.el,
+                display = realValue( el, 'display' ),
+                width
 
-            if ( (!width || width === AUTO) && item.attrs.basis === AUTO ) {
+            if ( display === NONE ) {
+                continue
+            }
+
+            item.attrs = flexItemsAttrs[ i ] || flexItemsAttrs.all
+            width      = parseFloat( item.attrs.width || flexItemsAttrs.all.width )
+
+            if ( !width ) {
+                width = cssValue( el, 'width' )
+            }
+
+            if ( width ) {
+                item.attrs.basis = width
+            } else if ( (!width || width === AUTO) && item.attrs.basis === AUTO ) {
                 item.attrs.basis = CONTENT
             }
             item.isInflexible = item.attrs.grow === 0 && item.attrs.shrink === 0
             //fix item's min/max width
-        } )
+            items.push( item )
+        }
+
+        flexContainer.items = items
 
         //single line
         flexContainer.isSingleLine = flexAttrs.wrap === 'nowrap'

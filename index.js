@@ -30,13 +30,17 @@
         return global.getComputedStyle( el )[ attr ]
     }
 
+    function realNumericValue( el, attr ) {
+        return ( parseFloat( realValue( el, attr ) ) || 0 )
+    }
+
     function itemInnerWidth( item ) {
         let el = item.el
         return ( item.width || item.baseSize || 0 )
-            + ( parseFloat( realValue( el, 'padding-left' ) ) || 0 )
-            + ( parseFloat( realValue( el, 'padding-right' ) ) || 0 )
-            + ( parseFloat( realValue( el, 'border-left-width' ) ) || 0 )
-            + ( parseFloat( realValue( el, 'border-right-width' ) ) || 0 )
+            + realNumericValue( el, 'padding-left' )
+            + realNumericValue( el, 'padding-right' )
+            + realNumericValue( el, 'border-left-width' )
+            + realNumericValue( el, 'border-right-width' )
     }
 
     function init() {
@@ -157,6 +161,7 @@
                 if ( basis === CONTENT ) {
                     if ( !el.children.length ) {
                         dummy.innerHTML  = el.innerHTML
+                        //TODO:not accurate
                         dummy.style.font = realValue( el, 'font' )
                         let rect         = dummy.getBoundingClientRect()
                         item.baseSize    = rect.width
@@ -192,7 +197,38 @@
             }
         }
 
+        if ( flexContainer.isLineReverse ) {
+            flexContainer.lines = flexContainer.lines.reverse()
+        }
+
         flexContainer.lines.forEach( resolveFlexibleLengths, flexContainer )
+    }
+
+    function determineCrossSize( flexContainer ) {
+        if ( flexContainer.isSingleLine && flexContainer.flexAttrs.height ) {
+            //TODO: computed height
+            let height = parseFloat( flexContainer.flexAttrs.height )
+
+            if ( height ) {
+                flexContainer.height = height
+            }
+        } else {
+            flexContainer.lineHeights = []
+            flexContainer.lines.forEach( ( line ) => {
+                let heights = line.map( ( item ) => {
+                    let el = item.el
+                    return realNumericValue( el, 'height' )
+                        + realNumericValue( el, 'padding-top' )
+                        + realNumericValue( el, 'padding-bottom' )
+                        + realNumericValue( el, 'border-top-width' )
+                        + realNumericValue( el, 'border-bottom-width' )
+                        + realNumericValue( el, 'margin-top' )
+                        + realNumericValue( el, 'margin-bottom' )
+                } )
+
+                flexContainer.lineHeights.push( Math.max.apply( null, heights ) )
+            } )
+        }
     }
 
     function computeFreeSpace( item, initWidth ) {
@@ -207,11 +243,6 @@
 
     //https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths
     function resolveFlexibleLengths( line ) {
-        //handle order, not write in spec.
-        line.sort( ( a, b ) => {
-            return a.attrs.order - b.attrs.order
-        } )
-
         let allSize        = line.reduce( ( accumulator, item ) => {
                 return accumulator + item.baseSize
             }, 0 ),
@@ -297,8 +328,11 @@
     function mainAxisAlignment( flexContainer ) {
         flexContainer.el.style.position = 'relative'
 
-        flexContainer.lines.forEach( ( line ) => {
-            let firstItem, lastItem, widthSum, lefOffset
+        let preLineHeights = 0
+
+        flexContainer.lines.forEach( ( line, i ) => {
+            let firstItem, lastItem, widthSum, lefOffset,
+                stylePrefix = `position:absolute;top:${ preLineHeights }px;`
 
             if ( !line.length ) return
 
@@ -306,7 +340,7 @@
             case 'flex-start':
                 line.reduce( ( accumulator, item ) => {
                     let el = item.el
-                    el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
+                    el.style.cssText += `${ stylePrefix }left:${ accumulator }px;`
 
                     return accumulator + itemInnerWidth( item )
                 }, 0 )
@@ -315,7 +349,7 @@
             case 'flex-end':
                 line.reduceRight( ( accumulator, item ) => {
                     let el = item.el
-                    el.style.cssText += `position:absolute;top:0;right:${ accumulator }px;`
+                    el.style.cssText += `${ stylePrefix }right:${ accumulator }px;`
 
                     return accumulator + itemInnerWidth( item )
                 }, 0 )
@@ -330,7 +364,7 @@
 
                 line.reduce( ( accumulator, item ) => {
                     let el = item.el
-                    el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
+                    el.style.cssText += `${ stylePrefix }left:${ accumulator }px;`
 
                     return accumulator + itemInnerWidth( item )
                 }, lefOffset )
@@ -345,8 +379,8 @@
                 firstItem = line[ 0 ]
                 lastItem  = line[ line.length - 1 ]
 
-                firstItem.el.style.cssText += 'position:absolute;top:0;left:0px;'
-                lastItem.el.style.cssText += 'position:absolute;top:0;right:0px;'
+                firstItem.el.style.cssText += stylePrefix + 'left:0px;'
+                lastItem.el.style.cssText += stylePrefix + 'right:0px;'
 
                 if ( line.length > 2 ) {
                     let widthSum = line.reduce( ( accumulator, item ) => {
@@ -358,7 +392,7 @@
                     line.reduce( ( accumulator, item, i ) => {
                         if ( i !== 0 && i !== line.length - 1 ) {
                             let el = item.el
-                            el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
+                            el.style.cssText += `${ stylePrefix }left:${ accumulator }px;`
                         }
 
                         return accumulator + itemInnerWidth( item ) + offset
@@ -382,7 +416,7 @@
 
                 line.reduce( ( accumulator, item ) => {
                     let el = item.el
-                    el.style.cssText += `position:absolute;top:0;left:${ accumulator }px;`
+                    el.style.cssText += `${ stylePrefix }left:${ accumulator }px;`
 
                     return accumulator + itemInnerWidth( item ) + offset
                 }, offset / 2 )
@@ -391,6 +425,8 @@
             default:
                 //do nothing
             }
+
+            preLineHeights += flexContainer.lineHeights[ i ]
         } )
     }
 
@@ -435,13 +471,20 @@
             items.push( item )
         }
 
+        //handle order, not write in spec.
+        items.sort( ( a, b ) => {
+            return a.attrs.order - b.attrs.order
+        } )
+
         flexContainer.items = items
 
         //single line
-        flexContainer.isSingleLine = flexAttrs.wrap === 'nowrap'
-        flexContainer.width        = parseFloat( realValue( flexContainer.el, 'width' ) ) || 0
+        flexContainer.isSingleLine  = flexAttrs.wrap === 'nowrap'
+        flexContainer.isLineReverse = flexAttrs.wrap === 'wrap-reverse'
+        flexContainer.width         = parseFloat( realValue( flexContainer.el, 'width' ) ) || 0
         determineLineSize( flexContainer )
         determineMainSize( flexContainer )
+        determineCrossSize( flexContainer )
         mainAxisAlignment( flexContainer )
     }
 

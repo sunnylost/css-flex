@@ -1,10 +1,11 @@
 (function( global ) {
-    let doc     = document,
-        body    = doc.body,
-        dummy   = doc.createElement( 'x-dummy' ),
+    let doc         = document,
+        body        = doc.body,
+        dummy       = doc.createElement( 'x-dummy' ),
 
-        rblank  = /\s/,
-        rnumber = /^\d+$/
+        rblank      = /\s/,
+        rnumber     = /^\d+$/,
+        rwhitespace = /(\u0009|\u0020|\u000a|\u000d)+/
 
     const AUTO      = 'auto',
           CONTENT   = 'content',
@@ -41,6 +42,13 @@
             + realNumericValue( el, 'padding-right' )
             + realNumericValue( el, 'border-left-width' )
             + realNumericValue( el, 'border-right-width' )
+    }
+
+    function createAnonymousItem( node ) {
+        let item       = document.createElement( 'x-flex-item' )
+        item.innerHTML = node.textContent
+        node.parentNode.replaceChild( item, node )
+        return item
     }
 
     function init() {
@@ -331,7 +339,7 @@
         let preLineHeights = 0
 
         flexContainer.lines.forEach( ( line, i ) => {
-            let firstItem, lastItem, widthSum, lefOffset,
+            let firstItem, lastItem, lefOffset,
                 stylePrefix = `position:absolute;top:${ preLineHeights }px;`
 
             if ( !line.length ) return
@@ -355,8 +363,8 @@
                 }, 0 )
                 break
 
-            case 'center':
-                widthSum = line.reduce( ( accumulator, item ) => {
+            case 'center': {
+                let widthSum = line.reduce( ( accumulator, item ) => {
                     return accumulator + itemInnerWidth( item )
                 }, 0 )
 
@@ -369,6 +377,7 @@
                     return accumulator + itemInnerWidth( item )
                 }, lefOffset )
                 break
+            }
 
             case 'space-between':
                 if ( line.length == 1 ) {
@@ -433,9 +442,27 @@
     function layout( el, flexAttrs, flexItemsAttrs ) {
         let flexContainer = {
             el,
-            items: c2a( el.children ).map( ( el, index ) => {
+            items: c2a( el.childNodes ).map( ( el, index ) => {
                 return {
                     index, el
+                }
+            } ).filter( ( item ) => {
+                switch ( item.el.nodeType ) {
+                case 1:
+                    return true
+
+                case 3:
+                    //has content
+                    if ( item.el.textContent.replace( rwhitespace, '' ).length ) {
+                        //create anonymous flex item
+                        item.el = createAnonymousItem( item.el )
+                        return true
+                    } else {
+                        return false
+                    }
+
+                default:
+                    return false
                 }
             } ),
             flexAttrs,
@@ -494,7 +521,7 @@
         apply: ( containerEl, attrs, childrenAttrs ) => {
             let rootEl = doc.querySelector( containerEl )
 
-            if ( !rootEl || !rootEl.children || !rootEl.children.length ) {
+            if ( !rootEl || !rootEl.childNodes || !rootEl.childNodes.length ) {
                 return
             }
 

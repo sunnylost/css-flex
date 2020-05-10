@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./helper.js"></script>
+</head>
+<body>
+<script src="../index.js"></script>
+<script>
+    Helper(`
+<ul class="flex-container">
+    <li class="flex-item">1</li>
+    <li class="flex-item">2</li>
+    <li class="flex-item">3</li>
+    <li class="flex-item">4</li>
+    <li class="flex-item">5</li>
+    <li class="flex-item">6</li>
+</ul>`, `
+#flex .flex-container {
+    display          : flex;
+    flex-flow      : row nowrap;
+    justify-content: space-around;
+    align-content: stretch;
+    align-items: stretch;
+}
+
+#flex .flex-item {
+    flex: 0 1 auto;
+    width: 200px;
+    justify-content: flex-start
+}
+
+#flex .flex-item:nth-child(2) {
+    order: 3;
+}
+#flex .flex-item:nth-child(4) {
+    order: 1;
+}
+`)
+    Flex.apply( '#simulate-flex .flex-container', {
+        display          : 'flex',
+        'flex-flow'      : 'row nowrap',
+        'justify-content': 'space-around'
+    }, {
+        all: {
+            flex             : '0 1 auto',
+            width            : '200px',
+            'justify-content': 'flex-start'
+        },
+        2  : {
+            order: 3
+        },
+        4  : {
+            order: 1
+        }
+    } )
+</script>
+</body>
+</html>

@@ -12,6 +12,17 @@
     const MAX_WIDTH = 'max-width'
     const INITIAL = 'initial'
     const NONE = 'none'
+    const DEFAULT_FLEX_ITEM_ATTR = {
+        grow: 0,
+        shrink: 1,
+        basis: AUTO,
+        order: 0,
+        'align-self': AUTO
+    }
+
+    function isNumber(n) {
+        return rnumber.test(n)
+    }
 
     function defaultValueHelper(val, defaultVal) {
         return typeof val === 'undefined' ? defaultVal : val
@@ -63,8 +74,8 @@
         flexAttr.display = attrs.display || 'flex'
 
         if (attrs['flex-flow']) {
-            let flexFlow = attrs['flex-flow'],
-                arr = flexFlow.split(rblank)
+            let flexFlow = attrs['flex-flow']
+            let arr = flexFlow.split(rblank)
 
             if (arr.length === 1) {
                 flexAttr.direction = arr[0]
@@ -88,72 +99,66 @@
     function parseFlexItemAttrs(attrs) {
         let flexItemAttrs = {}
 
-        if (attrs.all) {
-            //apply to all flex items
-            flexItemAttrs.all = parseItemAttr(attrs.all)
+        attrs = Object.assign(
+            {
+                all: {
+                    ...DEFAULT_FLEX_ITEM_ATTR
+                }
+            },
+            attrs
+        )
 
-            for (let key in attrs) {
+        Object.keys(attrs).forEach((key) => {
+            if (isNumber(key)) {
+                flexItemAttrs[parseInt(key) - 1] = parseItemAttr(attrs[key])
+            } else {
                 flexItemAttrs[key] = parseItemAttr(attrs[key])
             }
-        } else {
-            for (let key in attrs) {
-                flexItemAttrs[key] = parseItemAttr(attrs[key])
-            }
+        })
 
-            flexItemAttrs.all = {
-                grow: 0,
-                shrink: 1,
-                basis: AUTO,
-                order: 0,
-                'align-self': AUTO
-            }
-        }
-        console.log(flexItemAttrs)
         return flexItemAttrs
     }
 
     function parseItemAttr(attr) {
         let flexItemAttr = {
-            grow: 0,
-            shrink: 1,
-            basis: AUTO,
-            order: 0,
-            'align-self': AUTO
+            ...DEFAULT_FLEX_ITEM_ATTR
+        }
+        let flex = attr.flex
+
+        if (!flex) {
+            flex = INITIAL
         }
 
-        if (!attr.flex) {
-            attr.flex = INITIAL
-        }
-
-        switch (attr.flex) {
+        switch (flex) {
             case INITIAL:
-                attr.flex = '0 1 auto'
+                flex = '0 1 auto'
                 break
             case AUTO:
-                attr.flex = '1 1 auto'
+                flex = '1 1 auto'
                 break
             case NONE:
-                attr.flex = '0 0 auto'
+                flex = '0 0 auto'
                 break
             default:
-                if (rnumber.test(attr.flex)) {
-                    attr.flex += ' 1 0'
+                if (rnumber.test(flex)) {
+                    flex += ' 1 0'
                 }
         }
 
-        let flexParts = attr.flex.split(rblank)
+        let flexParts = flex.split(rblank)
 
+        flexItemAttr.flex = flex
         flexItemAttr.grow = +defaultValueHelper(flexParts[0], 0)
         flexItemAttr.shrink = +defaultValueHelper(flexParts[1], 1)
         flexItemAttr.basis = defaultValueHelper(flexParts[2], AUTO)
         attr.order && (flexItemAttr.order = attr.order)
         attr['align-self'] && (flexItemAttr['align-self'] = attr['align-self'])
 
-        for (let key in attr) {
-            if (!flexItemAttr.hasOwnProperty(key)) {
+        Object.keys(attr).forEach((key) => {
+            if (!flexItemAttr[key]) {
                 flexItemAttr[key] = attr[key]
             }
-        }
+        })
 
         return flexItemAttr
     }
@@ -164,8 +169,8 @@
         let { items } = flexContainer
 
         items.forEach((item) => {
-            let basis = item.attrs.basis,
-                el = item.el
+            let basis = item.attrs.basis
+            let el = item.el
 
             if (basis) {
                 if (basis === CONTENT) {
@@ -184,14 +189,16 @@
     }
 
     function determineMainSize(flexContainer) {
+        flexContainer.items.sort((a, b) => a.attrs.order - b.attrs.order)
+
         if (flexContainer.isSingleLine) {
             flexContainer.lines = [flexContainer.items]
         } else {
-            let line = [],
-                items = flexContainer.items.concat(),
-                width = flexContainer.width,
-                reduceVal = 0,
-                lines = (flexContainer.lines = [line])
+            let line = []
+            let items = flexContainer.items.concat()
+            let width = flexContainer.width
+            let reduceVal = 0
+            let lines = (flexContainer.lines = [line])
 
             while (items.length) {
                 let item = items.shift()
@@ -481,10 +488,10 @@
         //set item size
         let items = []
         for (let i = 0; i < flexContainer.items.length; i++) {
-            let item = flexContainer.items[i],
-                el = item.el,
-                display = realValue(el, 'display'),
-                width
+            let item = flexContainer.items[i]
+            let el = item.el
+            let display = realValue(el, 'display')
+            let width
 
             if (display === NONE) {
                 continue
@@ -508,9 +515,9 @@
         }
 
         //handle order, not write in spec.
-        items.sort((a, b) => {
-            return a.attrs.order - b.attrs.order
-        })
+        // items.sort((a, b) => {
+        //     return a.attrs.order - b.attrs.order
+        // })
 
         flexContainer.items = items
 

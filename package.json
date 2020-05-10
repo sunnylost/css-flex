@@ -1,0 +1,11 @@
+{
+    "name": "css-flex",
+    "version": "1.0.0",
+    "main": "index.js",
+    "repository": "https://github.com/sunnylost/css-flex.git",
+    "author": "sunnylost <sunnylost@gmail.com>",
+    "license": "MIT",
+    "devDependencies": {
+        "prettier": "^2.0.5"
+    }
+}

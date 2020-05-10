@@ -1,0 +1,63 @@
+* {
+    padding : 0;
+    margin  : 0;
+}
+
+#flex, #simulate-flex {
+    position: relative;
+    padding: 20px 0 0 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #c8b56d;
+}
+
+#flex::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 2px;
+    content: "flex";
+    color: #fff;
+    background-color: #000;
+}
+
+#simulate-flex::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 2px;
+    content: "simulate-flex";
+    color: #fff;
+    background-color: #000;
+}
+
+.flex-container {
+    padding    : 0;
+    margin     : 0;
+    list-style : none;
+    font-size  : 0;
+}
+
+.flex-item {
+    background  : tomato;
+    padding     : 5px;
+    height      : 150px;
+    margin-top  : 10px;
+    line-height : 150px;
+    color       : white;
+    font-weight : bold;
+    font-size   : 24px;
+    text-align  : center;
+}
+
+
+.flex-item:nth-child(1) {
+    background-color : #0accff;
+}
+
+.flex-item:nth-child(3) {
+    background-color : #ea82cf;
+}
+
+.flex-item:nth-child(5) {
+    background-color : #e8b849;
+}

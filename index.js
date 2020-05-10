@@ -1,17 +1,17 @@
-;(function(global) {
-    let doc = document,
-        body = doc.body,
-        dummy = doc.createElement('x-dummy'),
-        rblank = /\s/,
-        rnumber = /^\d+$/,
-        rwhitespace = /([\u0009\u0020\u000a\u000d])+/
+;(function (global) {
+    let doc = document
+    let body = doc.body
+    let dummy = doc.createElement('x-dummy')
+    let rblank = /\s/
+    let rnumber = /^\d+$/
+    let rwhitespace = /([\u0009\u0020\u000a\u000d])+/
 
-    const AUTO = 'auto',
-        CONTENT = 'content',
-        MIN_WIDTH = 'min-width',
-        MAX_WIDTH = 'max-width',
-        INITIAL = 'initial',
-        NONE = 'none'
+    const AUTO = 'auto'
+    const CONTENT = 'content'
+    const MIN_WIDTH = 'min-width'
+    const MAX_WIDTH = 'max-width'
+    const INITIAL = 'initial'
+    const NONE = 'none'
 
     function defaultValueHelper(val, defaultVal) {
         return typeof val === 'undefined' ? defaultVal : val
@@ -108,7 +108,7 @@
                 'align-self': AUTO
             }
         }
-
+        console.log(flexItemAttrs)
         return flexItemAttrs
     }
 
@@ -163,7 +163,7 @@
         //https://drafts.csswg.org/css-flexbox/#algo-available
         let { items } = flexContainer
 
-        items.forEach(item => {
+        items.forEach((item) => {
             let basis = item.attrs.basis,
                 el = item.el
 
@@ -224,8 +224,8 @@
             }
         } else {
             flexContainer.lineHeights = []
-            flexContainer.lines.forEach(line => {
-                let heights = line.map(item => {
+            flexContainer.lines.forEach((line) => {
+                let heights = line.map((item) => {
                     let el = item.el
                     return (
                         realNumericValue(el, 'height') +
@@ -287,7 +287,7 @@
                 }, 0)
             }
 
-            unfrozenItems.forEach(item => {
+            unfrozenItems.forEach((item) => {
                 let factor = isUsingGrowFactor ? item.attrs.grow : item.attrs.shrink * item.baseSize
 
                 //b. Calculate the remaining free space
@@ -455,7 +455,7 @@
                         el
                     }
                 })
-                .filter(item => {
+                .filter((item) => {
                     switch (item.el.nodeType) {
                         case 1:
                             return true
@@ -524,6 +524,23 @@
         mainAxisAlignment(flexContainer)
     }
 
+    function watchDimensionChange(rootEl, flexAttrs, itemAttrs) {
+        let defaultWidth = rootEl.offsetWidth
+        let defaultHeight = rootEl.offsetHeight
+        let resizeTimeoutId
+
+        function isDimensionChange() {
+            return defaultWidth !== rootEl.offsetWidth || defaultHeight !== rootEl.offsetHeight
+        }
+
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeoutId)
+            resizeTimeoutId = setTimeout(() => {
+                isDimensionChange() && layout(rootEl, flexAttrs, itemAttrs)
+            }, 20)
+        })
+    }
+
     init()
 
     global.Flex = {
@@ -534,7 +551,10 @@
                 return
             }
 
-            layout(rootEl, parseFlexAttrs(attrs || {}), parseFlexItemAttrs(childrenAttrs || {}))
+            let flexAttrs = parseFlexAttrs(attrs || {})
+            let itemAttrs = parseFlexItemAttrs(childrenAttrs || {})
+            watchDimensionChange(rootEl, flexAttrs, itemAttrs)
+            layout(rootEl, flexAttrs, itemAttrs)
         }
     }
 })(window)

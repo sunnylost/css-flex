@@ -298,25 +298,37 @@
                 return accumulator - item.width
             }
 
-            return accumulator - itemInnerWidth(item)
+            //TODO: https://drafts.csswg.org/css-flexbox/#algo-main-item
+            if (isNumber(item.baseSize)) {
+                return accumulator - item.baseSize
+            } else {
+                return accumulator - itemInnerWidth(item)
+            }
         }, initWidth)
     }
 
     //https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths
     function resolveFlexibleLengths(line) {
         let allSize = line.reduce((accumulator, item) => {
-                return accumulator + item.baseSize
-            }, 0),
-            containerWidth = this.width
+            let attrs = item.attrs
+
+            //size inflexible
+            if (attrs.grow === 0 && attrs.shrink === 0) {
+                item.isFrozen = true
+                item.width = item.baseSize
+            }
+            return accumulator + item.baseSize
+        }, 0)
+        let containerWidth = this.width
 
         //1. Determine the used flex factor
-        let isUsingGrowFactor = allSize < this.width,
-            unfrozenItems = line,
-            unfrozenItemsLength = unfrozenItems.length,
-            initFreeSpace = 0,
-            remainingFreeSpace = 0,
-            isComputing = true
-        //TODO: size inflexible
+        let isUsingGrowFactor = allSize < this.width
+        let factorKey = isUsingGrowFactor ? 'grow' : 'shrink'
+        let unfrozenItems = line.filter((item) => !item.isFrozen)
+        let unfrozenItemsLength = unfrozenItems.length
+        let initFreeSpace = 0
+        let remainingFreeSpace = 0
+        let isComputing = true
 
         initFreeSpace = computeFreeSpace(line, containerWidth)
 
@@ -326,28 +338,21 @@
 
             let factorSum
 
-            if (isUsingGrowFactor) {
-                factorSum = unfrozenItems.reduce((accumulator, item) => {
-                    return accumulator + item.attrs.grow
-                }, 0)
-            } else {
-                factorSum = unfrozenItems.reduce((accumulator, item) => {
-                    return accumulator + item.attrs.shrink * item.baseSize
-                }, 0)
+            factorSum = unfrozenItems.reduce((accumulator, item) => {
+                return accumulator + item.attrs[factorKey]
+            }, 0)
+
+            //b. Calculate the remaining free space
+            if (factorSum < 1) {
+                let tmp = initFreeSpace * factorSum
+
+                if (tmp < remainingFreeSpace) {
+                    remainingFreeSpace = tmp
+                }
             }
 
             unfrozenItems.forEach((item) => {
-                let factor = isUsingGrowFactor ? item.attrs.grow : item.attrs.shrink * item.baseSize
-
-                //b. Calculate the remaining free space
-                if (factorSum < 1) {
-                    let magnitude = initFreeSpace * factorSum
-
-                    if (magnitude < remainingFreeSpace) {
-                        remainingFreeSpace = magnitude
-                    }
-                }
-
+                let factor = item.attrs[factorKey]
                 let ratio
 
                 if (!factor) {
@@ -356,24 +361,32 @@
                     ratio = factor / factorSum
                 }
 
-                if (isUsingGrowFactor) {
-                    item.width = item.baseSize + remainingFreeSpace * ratio
+                let mainSize
+
+                if (remainingFreeSpace) {
+                    if (isUsingGrowFactor) {
+                        mainSize = item.baseSize + remainingFreeSpace * ratio
+                    } else {
+                        mainSize = item.baseSize - Math.abs(remainingFreeSpace) * ratio
+                    }
                 } else {
-                    item.width = item.baseSize - Math.abs(remainingFreeSpace) * ratio
-                }
-
-                let hasMinViolation = false,
-                    hasMaxViolation = false
-
-                if (item.attrs[MAX_WIDTH] < item.width) {
-                    hasMaxViolation = true
-                    item.width = item.attrs[MAX_WIDTH]
-                } else if (item.attrs[MIN_WIDTH] > item.width) {
-                    hasMinViolation = true
-                    item.width = item.attrs[MIN_WIDTH]
+                    mainSize = item.baseSize
                 }
 
                 //FIXME: min/max violation
+                let hasMinViolation = false
+                let hasMaxViolation = false
+
+                if (item.attrs[MAX_WIDTH] < item.width) {
+                    hasMaxViolation = true
+                    mainSize = item.attrs[MAX_WIDTH]
+                } else if (item.attrs[MIN_WIDTH] > item.width) {
+                    hasMinViolation = true
+                    mainSize = item.attrs[MIN_WIDTH]
+                }
+
+                item.width = mainSize
+
                 if (!hasMaxViolation && !hasMinViolation) {
                     item.isFrozen = true
                     unfrozenItemsLength--
@@ -386,20 +399,20 @@
         }
     }
 
-    function mainAxisAlignment(flexContainer) {
+    function mainAxisAlignment(flexContainer, justifyContentProperty) {
         flexContainer.el.style.position = 'relative'
 
         let preLineHeights = 0
 
         flexContainer.lines.forEach((line, i) => {
-            let firstItem,
-                lastItem,
-                lefOffset,
-                stylePrefix = `position:absolute;top:${preLineHeights}px;`
+            let firstItem
+            let lastItem
+            let lefOffset
+            let stylePrefix = `position:absolute;top:${preLineHeights}px;`
 
             if (!line.length) return
 
-            switch (flexContainer.flexAttrs['justify-content']) {
+            switch (justifyContentProperty || flexContainer.flexAttrs['justify-content']) {
                 case 'flex-start':
                     line.reduce((accumulator, item) => {
                         let el = item.el
@@ -436,8 +449,7 @@
 
                 case 'space-between':
                     if (line.length === 1) {
-                        flexContainer.flexAttrs['justify-content'] = 'flex-start'
-                        return mainAxisAlignment(flexContainer)
+                        return mainAxisAlignment(flexContainer, 'flex-start')
                     }
 
                     firstItem = line[0]
@@ -467,8 +479,7 @@
 
                 case 'space-around':
                     if (line.length === 1) {
-                        flexContainer.flexAttrs['justify-content'] = 'center'
-                        return mainAxisAlignment(flexContainer)
+                        return mainAxisAlignment(flexContainer, 'center')
                     }
 
                     let widthSum = line.reduce((accumulator, item) => {

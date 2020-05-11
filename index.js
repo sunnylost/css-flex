@@ -20,6 +20,10 @@
         'align-self': AUTO
     }
 
+    function isValidBasisValue(val) {
+        return isNumber(val) || val === INITIAL || val === AUTO || val === NONE
+    }
+
     function isNumber(n) {
         return rnumber.test(n)
     }
@@ -139,13 +143,51 @@
             case NONE:
                 flex = '0 0 auto'
                 break
-            default:
-                if (rnumber.test(flex)) {
-                    flex += ' 1 0'
-                }
         }
 
         let flexParts = flex.split(rblank)
+        let firstVal = flexParts[0]
+        let secondVal = flexParts[1]
+
+        //don't consider decimal
+        switch (flexParts.length) {
+            case 0:
+                flex = '0 1 auto'
+                flexParts = flex.split(rblank)
+                break
+
+            case 1:
+                if (rnumber.test(firstVal)) {
+                    flex = firstVal + ' 1 0'
+                    flexParts.push('1')
+                    flexParts.push('0')
+                } else {
+                    if (isValidBasisValue(firstVal)) {
+                        throw new Error(`Invalid "flex" value: ${flex}`)
+                    } else {
+                        flex = '1 1 ' + firstVal
+                        flexParts.unshift('1')
+                        flexParts.unshift('1')
+                    }
+                }
+                break
+
+            case 2:
+                if (isNumber(firstVal) && isNumber(secondVal)) {
+                    flex += ' 0'
+                    flexParts.push('0')
+                } else if (isNumber(firstVal) && isValidBasisValue(secondVal)) {
+                    flex = `${firstVal} 1 ${secondVal}`
+                    flexParts.splice(1, 0, '1')
+                } else {
+                    throw new Error(`Invalid "flex" value: ${flex}`)
+                }
+
+                break
+
+            default:
+                break
+        }
 
         flexItemAttr.flex = flex
         flexItemAttr.grow = +defaultValueHelper(flexParts[0], 0)
@@ -393,7 +435,7 @@
                 }
 
                 case 'space-between':
-                    if (line.length == 1) {
+                    if (line.length === 1) {
                         flexContainer.flexAttrs['justify-content'] = 'flex-start'
                         return mainAxisAlignment(flexContainer)
                     }
@@ -424,7 +466,7 @@
                     break
 
                 case 'space-around':
-                    if (line.length == 1) {
+                    if (line.length === 1) {
                         flexContainer.flexAttrs['justify-content'] = 'center'
                         return mainAxisAlignment(flexContainer)
                     }
@@ -514,13 +556,7 @@
             items.push(item)
         }
 
-        //handle order, not write in spec.
-        // items.sort((a, b) => {
-        //     return a.attrs.order - b.attrs.order
-        // })
-
         flexContainer.items = items
-
         //single line
         flexContainer.isSingleLine = flexAttrs.wrap === 'nowrap'
         flexContainer.isLineReverse = flexAttrs.wrap === 'wrap-reverse'

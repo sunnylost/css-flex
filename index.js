@@ -20,6 +20,15 @@
         'align-self': AUTO
     }
 
+    function itemOuterWidth(item) {
+        let el = item.el
+        let innerWidth = itemInnerWidth(item)
+
+        return (
+            innerWidth + realNumericValue(el, 'margin-left') + realNumericValue(el, 'margin-right')
+        )
+    }
+
     function isValidBasisValue(val) {
         return isNumber(val) || val === INITIAL || val === AUTO || val === NONE
     }
@@ -227,6 +236,7 @@
                     item.baseSize = parseInt(basis)
                 }
             }
+            item.outerBaseSize = itemOuterWidth(item)
         })
     }
 
@@ -244,11 +254,11 @@
 
             while (items.length) {
                 let item = items.shift()
-                reduceVal += item.baseSize
+                reduceVal += item.outerBaseSize
 
                 if (reduceVal > width) {
                     line = [item]
-                    reduceVal = item.baseSize
+                    reduceVal = item.outerBaseSize
                     lines.push(line)
                 } else {
                     line.push(item)
@@ -399,110 +409,113 @@
         }
     }
 
-    function mainAxisAlignment(flexContainer, justifyContentProperty) {
+    function mainAxisAlignment(flexContainer) {
         flexContainer.el.style.position = 'relative'
 
         let preLineHeights = 0
 
         flexContainer.lines.forEach((line, i) => {
-            let firstItem
-            let lastItem
-            let lefOffset
-            let stylePrefix = `position:absolute;top:${preLineHeights}px;`
-
-            if (!line.length) return
-
-            switch (justifyContentProperty || flexContainer.flexAttrs['justify-content']) {
-                case 'flex-start':
-                    line.reduce((accumulator, item) => {
-                        let el = item.el
-                        el.style.cssText += `${stylePrefix}left:${accumulator}px;`
-
-                        return accumulator + itemInnerWidth(item)
-                    }, 0)
-                    break
-
-                case 'flex-end':
-                    line.reduceRight((accumulator, item) => {
-                        let el = item.el
-                        el.style.cssText += `${stylePrefix}right:${accumulator}px;`
-
-                        return accumulator + itemInnerWidth(item)
-                    }, 0)
-                    break
-
-                case 'center': {
-                    let widthSum = line.reduce((accumulator, item) => {
-                        return accumulator + itemInnerWidth(item)
-                    }, 0)
-
-                    lefOffset = (flexContainer.width - widthSum) / 2
-
-                    line.reduce((accumulator, item) => {
-                        let el = item.el
-                        el.style.cssText += `${stylePrefix}left:${accumulator}px;`
-
-                        return accumulator + itemInnerWidth(item)
-                    }, lefOffset)
-                    break
-                }
-
-                case 'space-between':
-                    if (line.length === 1) {
-                        return mainAxisAlignment(flexContainer, 'flex-start')
-                    }
-
-                    firstItem = line[0]
-                    lastItem = line[line.length - 1]
-
-                    firstItem.el.style.cssText += stylePrefix + 'left:0px;'
-                    lastItem.el.style.cssText += stylePrefix + 'right:0px;'
-
-                    if (line.length > 2) {
-                        let widthSum = line.reduce((accumulator, item) => {
-                            return accumulator + itemInnerWidth(item)
-                        }, 0)
-
-                        let offset = (flexContainer.width - widthSum) / (line.length - 1)
-
-                        line.reduce((accumulator, item, i) => {
-                            if (i !== 0 && i !== line.length - 1) {
-                                let el = item.el
-                                el.style.cssText += `${stylePrefix}left:${accumulator}px;`
-                            }
-
-                            return accumulator + itemInnerWidth(item) + offset
-                        }, 0)
-                    }
-
-                    break
-
-                case 'space-around':
-                    if (line.length === 1) {
-                        return mainAxisAlignment(flexContainer, 'center')
-                    }
-
-                    let widthSum = line.reduce((accumulator, item) => {
-                        return accumulator + itemInnerWidth(item)
-                    }, 0)
-
-                    //first/last item has only half offset from container's edge.
-                    let offset = (flexContainer.width - widthSum) / line.length
-
-                    line.reduce((accumulator, item) => {
-                        let el = item.el
-                        el.style.cssText += `${stylePrefix}left:${accumulator}px;`
-
-                        return accumulator + itemInnerWidth(item) + offset
-                    }, offset / 2)
-                    break
-
-                default:
-                //do nothing
-            }
-
+            mainAxisAlignmentFn(flexContainer, line, preLineHeights)
             preLineHeights += flexContainer.lineHeights[i]
         })
+    }
+
+    function mainAxisAlignmentFn(flexContainer, line, preLineHeights, justifyContentProperty) {
+        let firstItem
+        let lastItem
+        let lefOffset
+        let stylePrefix = `position:absolute;top:${preLineHeights}px;`
+
+        if (!line.length) return
+
+        switch (justifyContentProperty || flexContainer.flexAttrs['justify-content']) {
+            case 'flex-start':
+                line.reduce((accumulator, item) => {
+                    let el = item.el
+                    el.style.cssText += `${stylePrefix}left:${accumulator}px;`
+
+                    return accumulator + itemInnerWidth(item)
+                }, 0)
+                break
+
+            case 'flex-end':
+                line.reduceRight((accumulator, item) => {
+                    let el = item.el
+                    el.style.cssText += `${stylePrefix}right:${accumulator}px;`
+
+                    return accumulator + itemInnerWidth(item)
+                }, 0)
+                break
+
+            case 'center': {
+                let widthSum = line.reduce((accumulator, item) => {
+                    return accumulator + itemInnerWidth(item)
+                }, 0)
+
+                lefOffset = (flexContainer.width - widthSum) / 2
+
+                line.reduce((accumulator, item) => {
+                    let el = item.el
+                    el.style.cssText += `${stylePrefix}left:${accumulator}px;`
+
+                    return accumulator + itemInnerWidth(item)
+                }, lefOffset)
+                break
+            }
+
+            case 'space-between':
+                if (line.length === 1) {
+                    return mainAxisAlignmentFn(flexContainer, line, preLineHeights, 'flex-start')
+                }
+
+                firstItem = line[0]
+                lastItem = line[line.length - 1]
+
+                firstItem.el.style.cssText += stylePrefix + 'left:0px;'
+                lastItem.el.style.cssText += stylePrefix + 'right:0px;'
+
+                if (line.length > 2) {
+                    let widthSum = line.reduce((accumulator, item) => {
+                        return accumulator + itemInnerWidth(item)
+                    }, 0)
+
+                    let offset = (flexContainer.width - widthSum) / (line.length - 1)
+
+                    line.reduce((accumulator, item, i) => {
+                        if (i !== 0 && i !== line.length - 1) {
+                            let el = item.el
+                            el.style.cssText += `${stylePrefix}left:${accumulator}px;`
+                        }
+
+                        return accumulator + itemInnerWidth(item) + offset
+                    }, 0)
+                }
+
+                break
+
+            case 'space-around':
+                if (line.length === 1) {
+                    return mainAxisAlignmentFn(flexContainer, line, preLineHeights, 'center')
+                }
+
+                let widthSum = line.reduce((accumulator, item) => {
+                    return accumulator + itemInnerWidth(item)
+                }, 0)
+
+                //first/last item has only half offset from container's edge.
+                let offset = (flexContainer.width - widthSum) / line.length
+
+                line.reduce((accumulator, item) => {
+                    let el = item.el
+                    el.style.cssText += `${stylePrefix}left:${accumulator}px;`
+
+                    return accumulator + itemInnerWidth(item) + offset
+                }, offset / 2)
+                break
+
+            default:
+            //do nothing
+        }
     }
 
     function layout(el, flexAttrs, flexItemsAttrs) {
